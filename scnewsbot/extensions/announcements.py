@@ -16,6 +16,16 @@ async def get_ping_message(message: discord.Message, /) -> Optional[discord.Mess
             return ping
 
 
+def reformat_description(description: str) -> str:
+    split_description = description.split("\n")
+
+    for index, line in enumerate(split_description):
+        if line.startswith("-"):
+            split_description[index] = "➣" + line[1:]
+
+    return "\n".join(split_description)
+
+
 class AnnouncementCog(commands.Cog, name="Announcements"):
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
@@ -116,7 +126,9 @@ class Announcement:
             setattr(self, option.id, converted_value)
             return True
 
-        if option.id == "channel":
+        if option.id == "description":
+            converted_value = reformat_description(value)
+        elif option.id == "channel":
             if value.startswith("#"):
                 value = value[1:]
 
@@ -144,10 +156,15 @@ class Announcement:
         embed = discord.Embed(
             color=bot.config.embed_color,
             title=self.title,
-            url=self.url,
             description=self.description,
         )
         embed.set_image(url=self.image_url)
+
+        if self.url and self.description:
+            embed.description = f"{self.url}\n\n" + embed.description
+        elif self.url:
+            embed.description = self.url
+
         if EMBED_THUMBNAIL:
             embed.set_thumbnail(url=EMBED_THUMBNAIL)
 
@@ -194,10 +211,16 @@ class Announcement:
             if len(split_message) == 2:
                 ping_preview = split_message[1]
 
+        url = None
+        description = embed.description
+        if len(embed.description.split("\n\n")) > 0:
+            url = embed.description.split("\n\n")[0]
+            description = "\n\n".join(embed.description.split("\n\n")[1:])
+
         return cls(
             title=embed.title,
-            url=embed.url,
-            description=embed.description,
+            url=url,
+            description=description,
             image_url=embed.image.url,
             channel=message.channel,
             ping=ping,
@@ -303,6 +326,12 @@ class AnnouncementBuilderView(discord.ui.View):
     async def toggle_private(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ) -> None:
+        if not self._has_permission(interaction.user):
+            await interaction.response.send_message(
+                "You cannot use this menu.", ephemeral=True
+            )
+            return
+
         self.announcement_builder.announcement.is_private = (
             not self.announcement_builder.announcement.is_private
         )
@@ -319,6 +348,12 @@ class AnnouncementBuilderView(discord.ui.View):
     async def toggle_notification(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ) -> None:
+        if not self._has_permission(interaction.user):
+            await interaction.response.send_message(
+                "You cannot use this menu.", ephemeral=True
+            )
+            return
+
         self.announcement_builder.announcement.will_notify = (
             not self.announcement_builder.announcement.will_notify
         )
