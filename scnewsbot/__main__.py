@@ -1,26 +1,23 @@
-import tomllib
 import os
+from hikari import GatewayBot, Intents
 from dotenv import load_dotenv
-from bot import Bot
-from utils import Config
-
-
-class InvalidTokenException(Exception):
-    pass
 
 
 def main() -> None:
-    DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
-    if not DISCORD_TOKEN:
-        raise InvalidTokenException("A Discord token was not set.")
+    load_dotenv()    
+    token = os.getenv("DISCORD_TOKEN")
 
-    with open("config.toml", "rb") as config_file:
-        config = Config(tomllib.load(config_file))
+    if not token:
+        print("Please set a DISCORD_TOKEN environment variable.")
+        exit(1)
 
-    bot = Bot(config)
-    bot.run(DISCORD_TOKEN)
+    if os.name != "nt":
+        import uvloop
+        uvloop.install()
+
+    bot = GatewayBot(intents=Intents.ALL_UNPRIVILEGED, token=token)
+    bot.run()
 
 
 if __name__ == "__main__":
-    load_dotenv()
     main()
